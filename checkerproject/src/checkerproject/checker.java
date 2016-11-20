@@ -2,6 +2,8 @@ package checkerproject;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.applet.*;
 import java.util.Vector;
 import javax.swing.JOptionPane;
@@ -36,6 +38,21 @@ public class checker extends Applet
 		 // create resign button 
 		 board.rulesButton.setBackground(Color.lightGray);
 		 add(board.rulesButton);
+		 
+		 // create Start Time Label
+		 board.startLabel.setForeground(Color.black);
+		 board.startLabel.setFont(new Font("Serif", Font.BOLD, 14));
+		 add(board.startLabel);
+		 
+		 // create Start Time time
+		 board.startTime.setForeground(Color.black);
+		 board.startTime.setFont(new Font("Serif", Font.BOLD, 14));
+		 add(board.startTime);
+		 
+		 // create Turns label
+		 board.turnsLabel.setForeground(Color.black);
+		 board.turnsLabel.setFont(new Font("Serif", Font.BOLD, 14));
+		 add(board.turnsLabel);
 		
 		 // Message for the player
 		 board.message.setForeground(Color.black);
@@ -57,7 +74,10 @@ public class checker extends Applet
 		 board.newGameButton.setBounds(430, 60, 100, 30);
 		 board.resignButton.setBounds(430, 120, 100, 30);
 		 board.rulesButton.setBounds(430, 180, 100, 30);
-		 board.message.setBounds(70, 430, 330, 30);
+		 board.startLabel.setBounds(430, 210, 100, 30);
+		 board.startTime.setBounds(430, 240, 100, 30);
+		 board.turnsLabel.setBounds(430, 270, 100, 30);
+		 board.message.setBounds(100, 430, 330, 30);
 		 board.playerOneDisplay.setBounds(0, 430, 100, 30);
 		 board.playerTwoDisplay.setBounds(0, 0, 100, 30);
 	}
@@ -83,6 +103,9 @@ class CheckersCanvas extends Canvas implements ActionListener, MouseListener
 Button resignButton;   // Current player can resign by clicking this button.
 Button newGameButton;  // This button starts a new game.  It is enabled only when the current game has ended.
 Button rulesButton; // This button creates a pop-out with the rules.
+Label startLabel; //A label for displaying Start Time
+Label startTime; // A label for displaying start time of game.
+Label turnsLabel; //A label for displaying the number of turns passed.
 Label message;   // A label for displaying messages to the user.
 Label playerOneDisplay; // A label for displaying player one's name
 Label playerTwoDisplay;	// A label for displaying player two's name
@@ -96,6 +119,9 @@ boolean gameInProgress; // Is a game currently in progress?
 int currentPlayer;      // Whose turn is it now?  The possible values are CheckersData.RED and CheckersData.BLACK.
 String playerOne;		// Stores player one's name
 String playerTwo;		// Stores player two's name
+int turns;              // Stores number of turns passed since the current game began.
+int turnsNotRemoved;    // Stores number of turns that no piece has been removed from play.
+int numOfPieces;        // Stores current number of pieces in play.
 int selectedRow, selectedCol;  // If the current player has selected a piece to move,
 CheckersMove[] legalMoves;  // current player with legal move 
 
@@ -114,6 +140,9 @@ public CheckersCanvas()
 	 newGameButton.addActionListener(this);
 	 rulesButton = new Button("Rules");
 	 rulesButton.addActionListener(this);
+	 startLabel = new Label("",Label.CENTER);
+	 startTime = new Label("",Label.CENTER);
+	 turnsLabel = new Label("",Label.CENTER);
 	 message = new Label("",Label.CENTER);
 	 playerOneDisplay = new Label("",Label.CENTER);
 	 playerTwoDisplay = new Label("",Label.CENTER);
@@ -151,6 +180,12 @@ void doNewGame()
 		 currentPlayer = CheckersData.RED;   // RED moves first.
 		 legalMoves = board.getLegalMoves(CheckersData.RED);  // Get RED's legal moves.
 		 selectedRow = -1;   // RED has not yet selected a piece to move.
+		 startLabel.setText("Start Time:");
+		 startTime.setText(getStartTime());
+		 turns = 1;
+		 turnsNotRemoved = 0;
+		 numOfPieces = 24;
+		 turnsLabel.setText("Turn " + turns);
 		 message.setText(playerOne + ":  Make your move.");
 		 playerOneDisplay.setText(playerOne);
 		 playerTwoDisplay.setText(playerTwo);
@@ -166,6 +201,13 @@ void doGetNames()
 		doGetPlayerOne();
 		doGetPlayerTwo();
 	}
+
+String getStartTime() {
+	DateTimeFormatter dtf = DateTimeFormatter.ofPattern("hh:mm a");
+	LocalDateTime now = LocalDateTime.now();
+	
+	return dtf.format(now);
+}
 
 void doGetPlayerOne()
 	{
@@ -366,13 +408,68 @@ void doMakeMove(CheckersMove move)
 		       selectedCol = legalMoves[0].fromCol;
 		    }
 		 }
+		
+		 turns++;
+		 turnsLabel.setText("Turn " + turns);
+		 
+		 int piecesInPlay = getPiecesInPlay();
+		 if (piecesInPlay == numOfPieces) {
+			 turnsNotRemoved++;
+		 }
+		 else {
+			 turnsNotRemoved = 0;
+		 }
+		 
+		 if (turnsNotRemoved == 10){
+			 int winner = timeOutCount();
+			 switch(winner) {
+			 case 0:
+				 gameOver("The game is a draw.");
+				 break;
+			 case 1:
+				 gameOver(playerTwo + " has less pieces. " + playerOne + " wins.");
+				 break;
+			 case 2:
+				 gameOver(playerOne + " has less pieces. " + playerTwo + " wins.");
+				 break;
+			 }
+		 }
+		 numOfPieces = piecesInPlay;
 		 // Make sure the board is redrawn in its new state. 
 		 repaint();
  
 	}  // end doMakeMove function 
 
+int getPiecesInPlay () {
+	int pieces = 0;
+	int[][] currentBoard = board.getBoard();
+	for (int i = 0; i < 8; i++){
+		for (int k = 0; k < 8; k++){
+			if (currentBoard[i][k] != CheckersData.EMPTY){
+				pieces++;
+			}
+			}
+		}
+	return pieces;
+	}
 
-
+int timeOutCount () {
+	int redPieces = 0;
+	int blackPieces = 0;
+	int[][] currentBoard = board.getBoard();
+	for (int i = 0; i < 8; i++){
+		for (int k = 0; k < 8; k++){
+			int currentPiece = currentBoard[i][k];
+			if (currentPiece == CheckersData.RED || currentPiece == CheckersData.RED_KING){
+				redPieces++;
+			} 
+			else if (currentPiece == CheckersData.BLACK || currentPiece == CheckersData.BLACK_KING){
+				blackPieces++;
+			}
+			}
+		}
+	return (redPieces == blackPieces) ? 0 : (redPieces > blackPieces) ? 1 : 2;
+}
 
 public void update(Graphics g) // update the gui everytime there a legal move is make
 	{
@@ -566,7 +663,9 @@ public void setUpGame()
 			 }
 		}  // end setUpGame function 
 
-
+public int[][] getBoard(){
+	return board;
+}
 public int pieceAt(int row, int col) 
 		{
 	     	// Return the contents of the square in the specified row and column.
